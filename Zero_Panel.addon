@@ -1,0 +1,10 @@
+## Title: |cA259FFZero|r |cFFFFFFPanel|r
+## APIVersion: 101048
+## Version: 0.2.9
+## AddOnVersion: 0002009
+## Author: |cA259FFZero|r
+## DependsOn: LibAddonMenu-2.0>=41 LibAddonMenuOrderListBox
+## SavedVariables: ZeroPanelSavedVars
+## Description: |cA259FFZero|r |cFFFFFFPanel|r standalone utility panel with reorderable buttons, assistant shortcuts, and generic group tools, as well as the ability to add fully custom buttons.
+
+Zero_Panel.lua
