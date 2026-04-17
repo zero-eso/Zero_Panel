@@ -76,6 +76,15 @@ local ZERO_PANEL_TAG = GetBrandedZeroAddonTag("PANEL")
 local ZERO_PANEL_SETTINGS_NAME = "Zero Panel"
 local ZERO_PANEL_GITHUB_URL = "https://github.com/zero-eso/Zero_Panel"
 local ZERO_PANEL_GITHUB_ISSUES_URL = ZERO_PANEL_GITHUB_URL .. "/issues"
+local ZERO_PANEL_LINK_HEX = "66B5FF"
+local ZERO_PANEL_GITHUB_ISSUES_LINK_TAG = "zero_panel_issues"
+local ZERO_PANEL_GITHUB_ISSUES_LINK_LABEL = "GitHub Zero_Panel Issues"
+local ZERO_PANEL_GITHUB_ISSUES_LINK_TEXT = string.format(
+    "|c%s|H0:%s|h%s|h|r",
+    ZERO_PANEL_LINK_HEX,
+    ZERO_PANEL_GITHUB_ISSUES_LINK_TAG,
+    ZERO_PANEL_GITHUB_ISSUES_LINK_LABEL
+)
 
 local DEFAULTS = {
     enabled = true,
@@ -777,6 +786,18 @@ end
 
 local function NormalizeBrowserText(value)
     return string.lower(TrimText(value))
+end
+
+local function OpenUnsafeUrl(url)
+    if type(RequestOpenUnsafeURL) == "function" then
+        RequestOpenUnsafeURL(url)
+    end
+end
+
+local function OnSupportLinkClicked(_, _, _, button)
+    if button == MOUSE_BUTTON_INDEX_LEFT then
+        OpenUnsafeUrl(ZERO_PANEL_GITHUB_ISSUES_URL)
+    end
 end
 
 local function AddUniqueValue(list, seen, value)
@@ -3333,6 +3354,17 @@ function ZeroPanel:ApplySettingsVisualStyles()
     if buttonOrderHelp and buttonOrderHelp.desc then
         buttonOrderHelp.desc:SetFont("ZoFontGameSmall")
     end
+
+    self:ConfigureButtonOrderListVisualStyles()
+end
+
+function ZeroPanel:ConfigureButtonOrderListVisualStyles()
+    local orderListControl = _G.ZeroPanelLayoutOrderList
+    local orderListBox = orderListControl and orderListControl.orderListBox
+    local scrollListControl = orderListBox and orderListBox.scrollListControl
+    if scrollListControl and type(ZO_Scroll_SetUseFadeGradient) == "function" then
+        ZO_Scroll_SetUseFadeGradient(scrollListControl, false)
+    end
 end
 
 function ZeroPanel:RefreshButtonOrderControlState()
@@ -3981,10 +4013,19 @@ function ZeroPanel:RefreshPanel()
                 button.bg:SetAnchorFill()
                 button.bg:SetCenterColor(0.12, 0.13, 0.17, 0.96)
                 button.bg:SetEdgeColor(0.22, 0.22, 0.26, 1)
+                button.bg:SetMouseEnabled(false)
 
                 button.icon = WINDOW_MANAGER:CreateControl(nil, button, CT_TEXTURE)
                 button.icon:SetAnchorFill()
                 button.icon:SetDrawLevel(1)
+                button.icon:SetMouseEnabled(false)
+
+                button.frame = WINDOW_MANAGER:CreateControl(button:GetName() .. "Frame", button, CT_BACKDROP)
+                button.frame:SetAnchorFill()
+                button.frame:SetCenterColor(0, 0, 0, 0)
+                button.frame:SetEdgeColor(0.22, 0.22, 0.26, 1)
+                button.frame:SetDrawLevel(2)
+                button.frame:SetMouseEnabled(false)
 
                 button:SetHandler("OnMouseEnter", function(control)
                     self:RefreshButtonHoverStates()
@@ -4595,109 +4636,9 @@ function ZeroPanel:BuildSettings()
             width = "full",
         },
     }
-
-    for _, actionId in ipairs(SUMMONABLE_ACTION_ORDER) do
-        local currentActionId = actionId
-        local summonable = SUMMONABLES[currentActionId]
-        local choices, choiceValues = self:GetCollectibleChoiceEntries(currentActionId)
-        local controlData = {
-            type = "dropdown",
-            name = summonable.choiceLabel,
-            tooltip = "Only unlocked options are listed here.",
-            choices = choices,
-            choicesValues = choiceValues,
-            getFunc = function()
-                return self:GetCollectibleChoice(currentActionId)
-            end,
-            setFunc = function(value)
-                self.savedVars.collectibleChoices[currentActionId] = value
-                self:RefreshPanel()
-            end,
-            disabled = function()
-                return #self:GetUnlockedCollectibles(currentActionId) == 0
-            end,
-            default = DEFAULTS.collectibleChoices[currentActionId],
-            width = "full",
-        }
-
-        if currentActionId == "summon_ally" then
-            allyControls[#allyControls + 1] = controlData
-        else
-            assistantControls[#assistantControls + 1] = controlData
-        end
-    end
-
-    local options = {
+    local buttonOrderControls = {
         {
             type = "description",
-            text = "Standalone screen-edge utility strip with reorderable buttons, configurable assistants, and a dedicated ally section.",
-            width = "full",
-        },
-        {
-            type = "description",
-            title = "Support",
-            text = string.format("Please report bugs and feature requests via GitHub: %s", ZERO_PANEL_GITHUB_ISSUES_URL),
-            width = "full",
-        },
-        {
-            type = "submenu",
-            name = "Commands",
-            controls = commandControls,
-        },
-        {
-            type = "submenu",
-            name = "Appearance",
-            controls = appearanceControls,
-        },
-        {
-            type = "submenu",
-            name = "Panel Settings",
-            controls = panelSettingsControls,
-        },
-        {
-            type = "submenu",
-            name = "Visible Buttons",
-            controls = visibleButtonsControls,
-        },
-        {
-            type = "submenu",
-            name = "Assistant Selection",
-            controls = assistantControls,
-        },
-        {
-            type = "submenu",
-            name = "Ally Selection",
-            controls = allyControls,
-        },
-        {
-            type = "submenu",
-            name = "Custom Buttons",
-            controls = customButtonControls,
-        },
-        {
-            type = "submenu",
-            name = "Custom Separators",
-            controls = customSeparatorControls,
-        },
-        {
-            type = "button",
-            name = "Add Custom Button",
-            func = function()
-                self:CreateCustomButton()
-            end,
-            width = "half",
-        },
-        {
-            type = "button",
-            name = "Add Separator",
-            func = function()
-                self:AddCustomSeparator()
-            end,
-            width = "half",
-        },
-        {
-            type = "description",
-            title = "Button Order",
             reference = "ZeroPanelButtonOrderHelp",
             text = function()
                 return self:GetButtonOrderHelpText()
@@ -4766,6 +4707,114 @@ function ZeroPanel:BuildSettings()
         },
     }
 
+    for _, actionId in ipairs(SUMMONABLE_ACTION_ORDER) do
+        local currentActionId = actionId
+        local summonable = SUMMONABLES[currentActionId]
+        local choices, choiceValues = self:GetCollectibleChoiceEntries(currentActionId)
+        local controlData = {
+            type = "dropdown",
+            name = summonable.choiceLabel,
+            tooltip = "Only unlocked options are listed here.",
+            choices = choices,
+            choicesValues = choiceValues,
+            getFunc = function()
+                return self:GetCollectibleChoice(currentActionId)
+            end,
+            setFunc = function(value)
+                self.savedVars.collectibleChoices[currentActionId] = value
+                self:RefreshPanel()
+            end,
+            disabled = function()
+                return #self:GetUnlockedCollectibles(currentActionId) == 0
+            end,
+            default = DEFAULTS.collectibleChoices[currentActionId],
+            width = "full",
+        }
+
+        if currentActionId == "summon_ally" then
+            allyControls[#allyControls + 1] = controlData
+        else
+            assistantControls[#assistantControls + 1] = controlData
+        end
+    end
+
+    local options = {
+        {
+            type = "description",
+            text = "Standalone screen-edge utility strip with reorderable buttons, configurable assistants, and a dedicated ally section.",
+            width = "full",
+        },
+        {
+            type = "description",
+            title = "Support",
+            text = string.format("Please report bugs and feature requests via %s.", ZERO_PANEL_GITHUB_ISSUES_LINK_TEXT),
+            tooltip = "Open the GitHub issues page for Zero Panel.",
+            enableLinks = OnSupportLinkClicked,
+            width = "full",
+        },
+        {
+            type = "submenu",
+            name = "Commands",
+            controls = commandControls,
+        },
+        {
+            type = "submenu",
+            name = "Appearance",
+            controls = appearanceControls,
+        },
+        {
+            type = "submenu",
+            name = "Panel Settings",
+            controls = panelSettingsControls,
+        },
+        {
+            type = "submenu",
+            name = "Visible Buttons",
+            controls = visibleButtonsControls,
+        },
+        {
+            type = "submenu",
+            name = "Assistant Selection",
+            controls = assistantControls,
+        },
+        {
+            type = "submenu",
+            name = "Ally Selection",
+            controls = allyControls,
+        },
+        {
+            type = "submenu",
+            name = "Custom Buttons",
+            controls = customButtonControls,
+        },
+        {
+            type = "submenu",
+            name = "Custom Separators",
+            controls = customSeparatorControls,
+        },
+        {
+            type = "button",
+            name = "Add Custom Button",
+            func = function()
+                self:CreateCustomButton()
+            end,
+            width = "half",
+        },
+        {
+            type = "button",
+            name = "Add Separator",
+            func = function()
+                self:AddCustomSeparator()
+            end,
+            width = "half",
+        },
+        {
+            type = "submenu",
+            name = "Button Order",
+            controls = buttonOrderControls,
+        },
+    }
+
     for _, definition in ipairs(self:GetCatalog()) do
         local currentDefinition = definition
         visibleButtonsControls[#visibleButtonsControls + 1] = {
@@ -4786,6 +4835,7 @@ function ZeroPanel:BuildSettings()
 
     LAM:RegisterOptionControls(self.panelId, options)
     self:RefreshButtonOrderControlState()
+    self:ConfigureButtonOrderListVisualStyles()
 end
 
 function ZeroPanel:HandleSlashCommand(argumentText)
