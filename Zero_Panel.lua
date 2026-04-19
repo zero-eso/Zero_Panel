@@ -10,8 +10,8 @@ ZeroPanel.panelId = "ZeroPanelOptions"
 
 local VERSION_INFO = {
     major = 0,
-    minor = 2,
-    patch = 9,
+    minor = 3,
+    patch = 0,
     prerelease = nil,
 }
 
@@ -71,12 +71,61 @@ local function GetBrandedZeroAddonTag(nameRemainder)
     return string.format("|c%s[|r%s|c%s]|r", ZERO_BRAND_WHITE_HEX, GetBrandedZeroAddonName(nameRemainder), ZERO_BRAND_WHITE_HEX)
 end
 
+local function GetColorComponentsFromHex(hexColor)
+    local hex = tostring(hexColor or ZERO_BRAND_WHITE_HEX):gsub("^#", "")
+    if #hex ~= 6 then
+        return 1, 1, 1, 1
+    end
+
+    local red = tonumber(hex:sub(1, 2), 16) or 255
+    local green = tonumber(hex:sub(3, 4), 16) or 255
+    local blue = tonumber(hex:sub(5, 6), 16) or 255
+    return red / 255, green / 255, blue / 255, 1
+end
+
+local function ApplyColorToControl(control, hexColor)
+    if not control or type(control.SetColor) ~= "function" then
+        return
+    end
+
+    control:SetColor(GetColorComponentsFromHex(hexColor))
+end
+
+local function CreateOrUpdateStringId(stringIdName, value)
+    if type(stringIdName) ~= "string" or stringIdName == "" then
+        return
+    end
+
+    if _G[stringIdName] and type(SafeAddString) == "function" then
+        SafeAddString(_G[stringIdName], value, 1)
+    elseif type(ZO_CreateStringId) == "function" then
+        ZO_CreateStringId(stringIdName, value)
+    end
+end
+
 local ZERO_PANEL_NAME = GetBrandedZeroAddonName("Panel")
 local ZERO_PANEL_TAG = GetBrandedZeroAddonTag("PANEL")
 local ZERO_PANEL_SETTINGS_NAME = "Zero Panel"
 local ZERO_PANEL_GITHUB_URL = "https://github.com/zero-eso/Zero_Panel"
 local ZERO_PANEL_GITHUB_ISSUES_URL = ZERO_PANEL_GITHUB_URL .. "/issues"
 local ZERO_PANEL_LINK_HEX = "66B5FF"
+local SETTINGS_SECTION_COMMANDS_HEX = "58D7D1"
+local SETTINGS_SECTION_APPEARANCE_HEX = "E3B05F"
+local SETTINGS_SECTION_PANEL_HEX = "7AA2FF"
+local SETTINGS_SECTION_VISIBLE_HEX = "7FD17B"
+local SETTINGS_SECTION_ASSISTANTS_HEX = "E7A85B"
+local SETTINGS_SECTION_ALLY_HEX = "77C7FF"
+local SETTINGS_SECTION_CUSTOM_BUTTONS_HEX = "F08A5D"
+local SETTINGS_SECTION_CUSTOM_SEPARATORS_HEX = "D97878"
+local SETTINGS_SECTION_ORDER_HEX = "E2C56A"
+local ZERO_PANEL_KEYBIND_ACTION_PREFIX = "ZERO_PANEL_TRIGGER_SLOT_"
+local ZERO_PANEL_KEYBIND_SLOT_COUNT = 60
+local ZERO_PANEL_KEYBIND_NONE_VALUE = 0
+local ZERO_PANEL_KEYBINDINGS_MENU_NAME = "Zero Panel Keybindings"
+local KEYBINDINGS_LAYER_DATA_TYPE = 1
+local KEYBINDINGS_CATEGORY_DATA_TYPE = 2
+local ZERO_PANEL_KEYBIND_SLOT_CHOICES = {"None"}
+local ZERO_PANEL_KEYBIND_SLOT_VALUES = {ZERO_PANEL_KEYBIND_NONE_VALUE}
 local ZERO_PANEL_GITHUB_ISSUES_LINK_TAG = "zero_panel_issues"
 local ZERO_PANEL_GITHUB_ISSUES_LINK_LABEL = "GitHub Zero_Panel Issues"
 local ZERO_PANEL_GITHUB_ISSUES_LINK_TEXT = string.format(
@@ -85,6 +134,42 @@ local ZERO_PANEL_GITHUB_ISSUES_LINK_TEXT = string.format(
     ZERO_PANEL_GITHUB_ISSUES_LINK_TAG,
     ZERO_PANEL_GITHUB_ISSUES_LINK_LABEL
 )
+local SETTINGS_SUBMENU_STYLES = {
+    { reference = "ZeroPanelCommandsSubmenu", hex = SETTINGS_SECTION_COMMANDS_HEX },
+    { reference = "ZeroPanelAppearanceSubmenu", hex = SETTINGS_SECTION_APPEARANCE_HEX },
+    { reference = "ZeroPanelPanelSettingsSubmenu", hex = SETTINGS_SECTION_PANEL_HEX },
+    { reference = "ZeroPanelVisibleButtonsSubmenu", hex = SETTINGS_SECTION_VISIBLE_HEX },
+    { reference = "ZeroPanelAssistantSubmenu", hex = SETTINGS_SECTION_ASSISTANTS_HEX },
+    { reference = "ZeroPanelAllySubmenu", hex = SETTINGS_SECTION_ALLY_HEX },
+    { reference = "ZeroPanelCustomButtonsSubmenu", hex = SETTINGS_SECTION_CUSTOM_BUTTONS_HEX },
+    { reference = "ZeroPanelCustomSeparatorsSubmenu", hex = SETTINGS_SECTION_CUSTOM_SEPARATORS_HEX },
+    { reference = "ZeroPanelButtonOrderSubmenu", hex = SETTINGS_SECTION_ORDER_HEX },
+}
+
+local function GetZeroPanelKeybindSlotLabel(slot)
+    if tonumber(slot) == ZERO_PANEL_KEYBIND_NONE_VALUE then
+        return "None"
+    end
+
+    return string.format("Binding Slot %02d", tonumber(slot) or 0)
+end
+
+local function GetZeroPanelKeybindSlotShortLabel(slot)
+    if tonumber(slot) == ZERO_PANEL_KEYBIND_NONE_VALUE then
+        return ""
+    end
+
+    return string.format("KB %02d", tonumber(slot) or 0)
+end
+
+local function GetZeroPanelKeybindActionName(slot)
+    return string.format("%s%d", ZERO_PANEL_KEYBIND_ACTION_PREFIX, tonumber(slot) or 0)
+end
+
+for keybindSlot = 1, ZERO_PANEL_KEYBIND_SLOT_COUNT do
+    ZERO_PANEL_KEYBIND_SLOT_CHOICES[#ZERO_PANEL_KEYBIND_SLOT_CHOICES + 1] = GetZeroPanelKeybindSlotLabel(keybindSlot)
+    ZERO_PANEL_KEYBIND_SLOT_VALUES[#ZERO_PANEL_KEYBIND_SLOT_VALUES + 1] = keybindSlot
+end
 
 local DEFAULTS = {
     enabled = true,
@@ -124,6 +209,7 @@ local DEFAULTS = {
     },
     customButtons = {},
     customSeparators = {},
+    keybindAssignments = {},
     nextCustomButtonId = 1,
     nextCustomSeparatorId = 1,
     order = {
@@ -186,6 +272,9 @@ local SUMMONABLES = {
     summon_banker = {
         ids = {267, 397, 6376, 8994, 9743, 11097, 12413, 13517},
         categoryType = COLLECTIBLE_CATEGORY_TYPE_ASSISTANT,
+        useCollectibleCategoryList = true,
+        requiresSpecializedCollectibleType = true,
+        dropdownReference = "ZeroPanelSummonBankerSelector",
         buttonTooltip = "Summon Banker Assistant.",
         randomTooltip = "Summon Random Banker Assistant.",
         tooltipPrefix = "Summon Banker Assistant",
@@ -198,6 +287,9 @@ local SUMMONABLES = {
     summon_trader = {
         ids = {301, 396, 6378, 8995, 9744, 11059, 12414, 13066},
         categoryType = COLLECTIBLE_CATEGORY_TYPE_ASSISTANT,
+        useCollectibleCategoryList = true,
+        requiresSpecializedCollectibleType = true,
+        dropdownReference = "ZeroPanelSummonTraderSelector",
         buttonTooltip = "Summon Merchant Assistant.",
         randomTooltip = "Summon Random Merchant Assistant.",
         tooltipPrefix = "Summon Merchant Assistant",
@@ -210,6 +302,9 @@ local SUMMONABLES = {
     summon_smuggler = {
         ids = {300},
         categoryType = COLLECTIBLE_CATEGORY_TYPE_ASSISTANT,
+        useCollectibleCategoryList = true,
+        requiresSpecializedCollectibleType = true,
+        dropdownReference = "ZeroPanelSummonSmugglerSelector",
         buttonTooltip = "Summon Smuggler Assistant.",
         randomTooltip = "Summon Random Smuggler Assistant.",
         tooltipPrefix = "Summon Smuggler Assistant",
@@ -222,6 +317,9 @@ local SUMMONABLES = {
     summon_armorer = {
         ids = {9745, 10618, 11876, 13518},
         categoryType = COLLECTIBLE_CATEGORY_TYPE_ASSISTANT,
+        useCollectibleCategoryList = true,
+        requiresSpecializedCollectibleType = true,
+        dropdownReference = "ZeroPanelSummonArmorerSelector",
         buttonTooltip = "Summon Armory Assistant.",
         randomTooltip = "Summon Random Armory Assistant.",
         tooltipPrefix = "Summon Armory Assistant",
@@ -234,6 +332,9 @@ local SUMMONABLES = {
     summon_ragpicker = {
         ids = {10184, 10617, 11877, 13063},
         categoryType = COLLECTIBLE_CATEGORY_TYPE_ASSISTANT,
+        useCollectibleCategoryList = true,
+        requiresSpecializedCollectibleType = true,
+        dropdownReference = "ZeroPanelSummonRagpickerSelector",
         buttonTooltip = "Summon Deconstruction Assistant.",
         randomTooltip = "Summon Random Deconstruction Assistant.",
         tooltipPrefix = "Summon Deconstruction Assistant",
@@ -246,6 +347,8 @@ local SUMMONABLES = {
     summon_ally = {
         ids = {9245, 9353, 9911, 9912, 11113, 11114, 12172, 12173},
         categoryType = COLLECTIBLE_CATEGORY_TYPE_COMPANION,
+        useCollectibleCategoryList = true,
+        dropdownReference = "ZeroPanelSummonAllySelector",
         buttonTooltip = "Summon Ally.",
         randomTooltip = "Summon Random Ally.",
         tooltipPrefix = "Summon Ally",
@@ -256,6 +359,12 @@ local SUMMONABLES = {
         randomChoice = true,
     },
 }
+
+local function GetSummonableIconProvider(actionId, fallbackIcon)
+    return function()
+        return ZeroPanel:GetSummonableButtonIcon(actionId, fallbackIcon)
+    end
+end
 
 local PET_BUFF_IDS = {
     [23304] = true,
@@ -369,7 +478,7 @@ local BUTTON_DEFINITIONS = {
         group = "assistants",
         collectibleActionId = "summon_banker",
         hideWhenUnavailable = true,
-        icon = "/esoui/art/icons/mapkey/mapkey_bank.dds",
+        icon = GetSummonableIconProvider("summon_banker", "/esoui/art/icons/mapkey/mapkey_bank.dds"),
         tooltip = function(self)
             return self:GetSummonTooltip("summon_banker")
         end,
@@ -387,7 +496,7 @@ local BUTTON_DEFINITIONS = {
         group = "assistants",
         collectibleActionId = "summon_trader",
         hideWhenUnavailable = true,
-        icon = "/esoui/art/mail/gamepad/gp_mailmenu_attachitem.dds",
+        icon = GetSummonableIconProvider("summon_trader", "/esoui/art/mail/gamepad/gp_mailmenu_attachitem.dds"),
         tooltip = function(self)
             return self:GetSummonTooltip("summon_trader")
         end,
@@ -405,7 +514,7 @@ local BUTTON_DEFINITIONS = {
         group = "assistants",
         collectibleActionId = "summon_smuggler",
         hideWhenUnavailable = true,
-        icon = "/esoui/art/icons/mapkey/mapkey_fence.dds",
+        icon = GetSummonableIconProvider("summon_smuggler", "/esoui/art/icons/mapkey/mapkey_fence.dds"),
         tooltip = function(self)
             return self:GetSummonTooltip("summon_smuggler")
         end,
@@ -423,7 +532,7 @@ local BUTTON_DEFINITIONS = {
         group = "assistants",
         collectibleActionId = "summon_armorer",
         hideWhenUnavailable = true,
-        icon = "/esoui/art/treeicons/gamepad/gp_collectionicon_weapona+armor.dds",
+        icon = GetSummonableIconProvider("summon_armorer", "/esoui/art/treeicons/gamepad/gp_collectionicon_weapona+armor.dds"),
         tooltip = function(self)
             return self:GetSummonTooltip("summon_armorer")
         end,
@@ -441,7 +550,7 @@ local BUTTON_DEFINITIONS = {
         group = "assistants",
         collectibleActionId = "summon_ragpicker",
         hideWhenUnavailable = true,
-        icon = "/esoui/art/crafting/gamepad/gp_crafting_menuicon_deconstruct.dds",
+        icon = GetSummonableIconProvider("summon_ragpicker", "/esoui/art/crafting/gamepad/gp_crafting_menuicon_deconstruct.dds"),
         tooltip = function(self)
             return self:GetSummonTooltip("summon_ragpicker")
         end,
@@ -459,7 +568,7 @@ local BUTTON_DEFINITIONS = {
         group = "allies",
         collectibleActionId = "summon_ally",
         hideWhenUnavailable = true,
-        icon = "/esoui/art/inventory/inventory_tabicon_companion_up.dds",
+        icon = GetSummonableIconProvider("summon_ally", "/esoui/art/inventory/inventory_tabicon_companion_up.dds"),
         tooltip = function(self)
             return self:GetSummonTooltip("summon_ally")
         end,
@@ -896,6 +1005,21 @@ function ZeroPanel:Print(message)
     d(string.format("%s %s", ZERO_PANEL_TAG, tostring(message)))
 end
 
+function ZeroPanel:RegisterKeybindStringIds()
+    for keybindSlot = 1, ZERO_PANEL_KEYBIND_SLOT_COUNT do
+        local bindingLabel = GetZeroPanelKeybindSlotLabel(keybindSlot)
+        if self.savedVars then
+            local assignedLayoutKey = self:GetLayoutKeyForKeybindSlot(keybindSlot)
+            local assignedEntry = assignedLayoutKey and self:GetLayoutCatalogByKey()[assignedLayoutKey] or nil
+            if self:IsLayoutEntryBindable(assignedEntry) then
+                bindingLabel = string.format("%s: %s", bindingLabel, tostring(assignedEntry.name or assignedEntry.key or "Assigned Button"))
+            end
+        end
+
+        CreateOrUpdateStringId("SI_BINDING_NAME_" .. GetZeroPanelKeybindActionName(keybindSlot), bindingLabel)
+    end
+end
+
 function ZeroPanel:GetRoleName(role)
     if role == LFG_ROLE_TANK then
         return "Tank"
@@ -925,6 +1049,10 @@ function ZeroPanel:GetCollectibleBrowserState()
     self.collectibleBrowserState.pageIndex = tonumber(self.collectibleBrowserState.pageIndex) or 1
 
     return self.collectibleBrowserState
+end
+
+function ZeroPanel:InvalidateCollectibleCaches()
+    self.collectibleBrowserMeta = nil
 end
 
 function ZeroPanel:BuildCollectibleBrowserMeta()
@@ -1057,7 +1185,19 @@ function ZeroPanel:UpdateDropdownReference(referenceName, choices, choiceValues,
     end
 end
 
+function ZeroPanel:RefreshSummonableChoiceControls()
+    for _, actionId in ipairs(SUMMONABLE_ACTION_ORDER) do
+        local summonable = SUMMONABLES[actionId]
+        if summonable and summonable.dropdownReference then
+            local choices, choiceValues = self:GetCollectibleChoiceEntries(actionId)
+            self:UpdateDropdownReference(summonable.dropdownReference, choices, choiceValues, self:GetCollectibleChoice(actionId))
+        end
+    end
+end
+
 function ZeroPanel:RequestSettingsRefresh()
+    self:RefreshLayoutDirectionOptionControls()
+
     if not LibAddonMenu2 or not LibAddonMenu2.util or type(LibAddonMenu2.util.RequestRefreshIfNeeded) ~= "function" then
         return
     end
@@ -2266,6 +2406,8 @@ function ZeroPanel:SetSelectedCustomButtonId(customButtonId)
         end
         self.selectedCustomButtonId = nil
     end
+
+    self:RefreshButtonOrderControlState()
 end
 
 function ZeroPanel:GetSelectedCustomButtonData()
@@ -2294,6 +2436,8 @@ function ZeroPanel:SetSelectedCustomSeparatorId(customSeparatorId)
         end
         self.selectedCustomSeparatorId = nil
     end
+
+    self:RefreshButtonOrderControlState()
 end
 
 function ZeroPanel:GetCustomButtonAction(actionType)
@@ -2463,14 +2607,139 @@ function ZeroPanel:ExecuteCustomButton(customButtonId)
     end
 end
 
-function ZeroPanel:GetUnlockedCollectibles(actionId)
-    local summonable = SUMMONABLES[actionId]
-    local unlocked = {}
-    if not summonable then
-        return unlocked
+function ZeroPanel:ExecuteButtonDefinition(definition)
+    if not definition or not self:IsButtonEnabledBySettings(definition) or not self:IsButtonUsable(definition) then
+        return false
     end
 
-    for _, collectibleId in ipairs(summonable.ids) do
+    if type(definition.click) ~= "function" then
+        return false
+    end
+
+    definition.click(self)
+    self:RefreshPanel()
+    self:QueueHoveredTooltipRefresh()
+    return true
+end
+
+function ZeroPanel:ExecuteKeybindSlot(keybindSlot)
+    local resolvedKeybindSlot = tonumber(keybindSlot)
+    if not resolvedKeybindSlot or resolvedKeybindSlot < 1 or resolvedKeybindSlot > ZERO_PANEL_KEYBIND_SLOT_COUNT then
+        return false
+    end
+
+    local layoutKey = self:GetLayoutKeyForKeybindSlot(resolvedKeybindSlot)
+    if type(layoutKey) ~= "string" or layoutKey == "" then
+        return false
+    end
+
+    local entry = self:GetLayoutCatalogByKey()[layoutKey]
+    if not self:IsLayoutEntryBindable(entry) then
+        self:ClearKeybindAssignmentForLayoutKey(layoutKey)
+        return false
+    end
+
+    return self:ExecuteButtonDefinition(entry.definition)
+end
+
+function ZeroPanel:CollectibleListContainsId(collectibleIds, collectibleId)
+    if type(collectibleId) ~= "number" or collectibleId <= 0 then
+        return false
+    end
+
+    for _, candidateId in ipairs(collectibleIds or {}) do
+        if candidateId == collectibleId then
+            return true
+        end
+    end
+
+    return false
+end
+
+function ZeroPanel:GetSummonableSpecializedCollectibleType(actionId)
+    local summonable = SUMMONABLES[actionId]
+    if not summonable or type(GetSpecializedCollectibleType) ~= "function" then
+        return nil
+    end
+
+    if summonable.specializedType ~= nil then
+        return summonable.specializedType or nil
+    end
+
+    for _, collectibleId in ipairs(summonable.ids or {}) do
+        local specializedType = GetSpecializedCollectibleType(collectibleId)
+        if type(specializedType) == "number" and (not SPECIALIZED_COLLECTIBLE_TYPE_NONE or specializedType ~= SPECIALIZED_COLLECTIBLE_TYPE_NONE) then
+            summonable.specializedType = specializedType
+            return specializedType
+        end
+    end
+
+    summonable.specializedType = false
+    return nil
+end
+
+function ZeroPanel:GetCollectiblesForSummonAction(actionId)
+    local summonable = SUMMONABLES[actionId]
+    local collectibleIds = {}
+    if not summonable then
+        return collectibleIds
+    end
+
+    if summonable.useCollectibleCategoryList and summonable.categoryType and type(GetTotalCollectiblesByCategoryType) == "function" and type(GetCollectibleIdFromType) == "function" then
+        local specializedType = self:GetSummonableSpecializedCollectibleType(actionId)
+        if not summonable.requiresSpecializedCollectibleType or specializedType ~= nil then
+            local totalCollectibles = GetTotalCollectiblesByCategoryType(summonable.categoryType) or 0
+            local seenCollectibleIds = {}
+
+            for collectibleIndex = 1, totalCollectibles do
+                local collectibleId = GetCollectibleIdFromType(summonable.categoryType, collectibleIndex)
+                if collectibleId and collectibleId > 0 and not seenCollectibleIds[collectibleId] then
+                    local includeCollectible = true
+                    if specializedType ~= nil and type(GetSpecializedCollectibleType) == "function" then
+                        includeCollectible = GetSpecializedCollectibleType(collectibleId) == specializedType
+                    end
+
+                    if includeCollectible then
+                        collectibleIds[#collectibleIds + 1] = collectibleId
+                        seenCollectibleIds[collectibleId] = true
+                    end
+                end
+            end
+
+            if #collectibleIds > 0 then
+                local orderedCollectibleIds = {}
+                local orderedSet = {}
+                for _, knownCollectibleId in ipairs(summonable.ids or {}) do
+                    if seenCollectibleIds[knownCollectibleId] then
+                        orderedCollectibleIds[#orderedCollectibleIds + 1] = knownCollectibleId
+                        orderedSet[knownCollectibleId] = true
+                    end
+                end
+
+                for _, collectibleId in ipairs(collectibleIds) do
+                    if not orderedSet[collectibleId] then
+                        orderedCollectibleIds[#orderedCollectibleIds + 1] = collectibleId
+                    end
+                end
+
+                return orderedCollectibleIds
+            end
+        end
+    end
+
+    for _, collectibleId in ipairs(summonable.ids or {}) do
+        if collectibleId and collectibleId > 0 then
+            collectibleIds[#collectibleIds + 1] = collectibleId
+        end
+    end
+
+    return collectibleIds
+end
+
+function ZeroPanel:GetUnlockedCollectibles(actionId)
+    local unlocked = {}
+
+    for _, collectibleId in ipairs(self:GetCollectiblesForSummonAction(actionId)) do
         if IsCollectibleUnlocked(collectibleId) then
             unlocked[#unlocked + 1] = collectibleId
         end
@@ -2509,7 +2778,7 @@ function ZeroPanel:GetCollectibleChoice(actionId)
         self.savedVars.collectibleChoices[actionId] = choice
     end
 
-    if choice ~= DEFAULT_COLLECTIBLE_CHOICE and choice ~= RANDOM_COLLECTIBLE_CHOICE and not IsCollectibleUnlocked(choice) then
+    if choice ~= DEFAULT_COLLECTIBLE_CHOICE and choice ~= RANDOM_COLLECTIBLE_CHOICE and not self:CollectibleListContainsId(self:GetUnlockedCollectibles(actionId), choice) then
         choice = DEFAULTS.collectibleChoices[actionId]
         if type(choice) ~= "number" then
             choice = defaultChoiceValue
@@ -2578,7 +2847,7 @@ function ZeroPanel:GetSelectedCollectibleId(actionId)
     end
 
     local choice = self:GetCollectibleChoice(actionId)
-    if choice ~= DEFAULT_COLLECTIBLE_CHOICE and choice ~= RANDOM_COLLECTIBLE_CHOICE and IsCollectibleUnlocked(choice) then
+    if choice ~= DEFAULT_COLLECTIBLE_CHOICE and choice ~= RANDOM_COLLECTIBLE_CHOICE and self:CollectibleListContainsId(unlocked, choice) then
         return choice
     end
 
@@ -2601,6 +2870,42 @@ function ZeroPanel:GetSelectedCollectibleId(actionId)
     end
 
     return unlocked[1]
+end
+
+function ZeroPanel:GetPreviewCollectibleId(actionId)
+    local summonable = SUMMONABLES[actionId]
+    if not summonable then
+        return nil
+    end
+
+    local unlocked = self:GetUnlockedCollectibles(actionId)
+    if #unlocked == 0 then
+        return nil
+    end
+
+    local choice = self:GetCollectibleChoice(actionId)
+    if choice ~= DEFAULT_COLLECTIBLE_CHOICE and choice ~= RANDOM_COLLECTIBLE_CHOICE and self:CollectibleListContainsId(unlocked, choice) then
+        return choice
+    end
+
+    local activeCollectibleId = self:GetActiveCollectibleForAction(actionId)
+    if activeCollectibleId and self:CollectibleListContainsId(unlocked, activeCollectibleId) then
+        return activeCollectibleId
+    end
+
+    return unlocked[1]
+end
+
+function ZeroPanel:GetSummonableButtonIcon(actionId, fallbackIcon)
+    local collectibleId = self:GetPreviewCollectibleId(actionId)
+    if collectibleId and type(GetCollectibleIcon) == "function" then
+        local collectibleIcon = GetCollectibleIcon(collectibleId)
+        if collectibleIcon and collectibleIcon ~= "" then
+            return collectibleIcon
+        end
+    end
+
+    return fallbackIcon
 end
 
 function ZeroPanel:GetSummonTooltip(actionId)
@@ -2833,6 +3138,49 @@ function ZeroPanel:EnsureCollectibleChoices()
     end
 end
 
+function ZeroPanel:EnsureKeybindAssignments()
+    self.savedVars.keybindAssignments = self.savedVars.keybindAssignments or {}
+
+    local layoutByKey = self:GetLayoutCatalogByKey()
+    local normalizedAssignments = {}
+    local seenSlots = {}
+    local orderedLayoutKeys = {}
+    local seenLayoutKeys = {}
+
+    local function AddLayoutKey(layoutKey)
+        if type(layoutKey) == "string" and layoutByKey[layoutKey] and not seenLayoutKeys[layoutKey] then
+            orderedLayoutKeys[#orderedLayoutKeys + 1] = layoutKey
+            seenLayoutKeys[layoutKey] = true
+        end
+    end
+
+    for _, entryKey in ipairs(self.savedVars.order or {}) do
+        local normalizedKey
+        if type(entryKey) == "number" then
+            normalizedKey = GetDefaultButtonLayoutKey(entryKey)
+        elseif type(entryKey) == "string" then
+            normalizedKey = entryKey
+        end
+
+        AddLayoutKey(normalizedKey)
+    end
+
+    for layoutKey in pairs(self.savedVars.keybindAssignments) do
+        AddLayoutKey(layoutKey)
+    end
+
+    for _, layoutKey in ipairs(orderedLayoutKeys) do
+        local slot = math.floor(tonumber(self.savedVars.keybindAssignments[layoutKey]) or ZERO_PANEL_KEYBIND_NONE_VALUE)
+        local entry = layoutByKey[layoutKey]
+        if entry and entry.kind == "button" and slot >= 1 and slot <= ZERO_PANEL_KEYBIND_SLOT_COUNT and not seenSlots[slot] then
+            normalizedAssignments[layoutKey] = slot
+            seenSlots[slot] = true
+        end
+    end
+
+    self.savedVars.keybindAssignments = normalizedAssignments
+end
+
 function ZeroPanel:EnsureOrder()
     local seen = {}
     local merged = {}
@@ -2931,6 +3279,54 @@ function ZeroPanel:GetLayoutDirection()
     end
 
     return "vertical"
+end
+
+function ZeroPanel:GetLayoutDirectionDisplayName(layoutDirection)
+    local resolvedLayoutDirection = layoutDirection or self:GetLayoutDirection()
+    if resolvedLayoutDirection == "horizontal" then
+        return "Vertical"
+    end
+
+    return "Horizontal"
+end
+
+function ZeroPanel:GetButtonsPerLineSettingName()
+    if self:GetLayoutDirectionDisplayName() == "Vertical" then
+        return "Buttons Per Column"
+    end
+
+    return "Buttons Per Row"
+end
+
+function ZeroPanel:GetButtonsPerLineSettingTooltip()
+    if self:GetLayoutDirectionDisplayName() == "Vertical" then
+        return "How many buttons fit in each vertical column before Zero Panel wraps to the next column. Separators stay in sequence and do not count toward this limit."
+    end
+
+    return "How many buttons fit in each horizontal row before Zero Panel wraps to the next row. Separators stay in sequence and do not count toward this limit."
+end
+
+function ZeroPanel:RefreshLayoutDirectionOptionControls()
+    local buttonsPerLineControl = _G.ZeroPanelButtonsPerLineSlider
+    if buttonsPerLineControl then
+        local controlName = self:GetButtonsPerLineSettingName()
+        local tooltipText = self:GetButtonsPerLineSettingTooltip()
+
+        buttonsPerLineControl.data = buttonsPerLineControl.data or {}
+        buttonsPerLineControl.data.tooltipText = tooltipText
+
+        if buttonsPerLineControl.label and type(buttonsPerLineControl.label.SetText) == "function" then
+            buttonsPerLineControl.label:SetText(controlName)
+        end
+
+        if type(buttonsPerLineControl.UpdateDisabled) == "function" then
+            buttonsPerLineControl:UpdateDisabled()
+        end
+
+        if type(buttonsPerLineControl.UpdateWarning) == "function" then
+            buttonsPerLineControl:UpdateWarning()
+        end
+    end
 end
 
 function ZeroPanel:GetButtonsPerLine()
@@ -3180,6 +3576,93 @@ function ZeroPanel:GetSelectedLayoutEntry()
     return self:GetLayoutCatalogByKey()[layoutKey]
 end
 
+function ZeroPanel:IsLayoutEntryBindable(entry)
+    return type(entry) == "table" and entry.kind == "button" and type(entry.definition) == "table"
+end
+
+function ZeroPanel:IsZeroPanelKeybindActionName(actionName)
+    return type(actionName) == "string" and string.find(actionName, "^" .. ZERO_PANEL_KEYBIND_ACTION_PREFIX, 1) ~= nil
+end
+
+function ZeroPanel:GetKeybindSlotForLayoutKey(layoutKey)
+    self:EnsureKeybindAssignments()
+
+    local keybindSlot = math.floor(tonumber(self.savedVars.keybindAssignments[layoutKey]) or ZERO_PANEL_KEYBIND_NONE_VALUE)
+    if keybindSlot < 1 or keybindSlot > ZERO_PANEL_KEYBIND_SLOT_COUNT then
+        return ZERO_PANEL_KEYBIND_NONE_VALUE
+    end
+
+    return keybindSlot
+end
+
+function ZeroPanel:GetLayoutKeyForKeybindSlot(keybindSlot)
+    self:EnsureKeybindAssignments()
+
+    local resolvedKeybindSlot = math.floor(tonumber(keybindSlot) or ZERO_PANEL_KEYBIND_NONE_VALUE)
+    if resolvedKeybindSlot < 1 or resolvedKeybindSlot > ZERO_PANEL_KEYBIND_SLOT_COUNT then
+        return nil
+    end
+
+    for layoutKey, assignedSlot in pairs(self.savedVars.keybindAssignments or {}) do
+        if tonumber(assignedSlot) == resolvedKeybindSlot then
+            return layoutKey
+        end
+    end
+
+    return nil
+end
+
+function ZeroPanel:ClearKeybindAssignmentForLayoutKey(layoutKey)
+    self.savedVars.keybindAssignments = self.savedVars.keybindAssignments or {}
+    self.savedVars.keybindAssignments[layoutKey] = nil
+end
+
+function ZeroPanel:SetKeybindSlotForLayoutKey(layoutKey, keybindSlot)
+    local entry = type(layoutKey) == "string" and self:GetLayoutCatalogByKey()[layoutKey] or nil
+    if not self:IsLayoutEntryBindable(entry) then
+        return
+    end
+
+    self:EnsureKeybindAssignments()
+
+    local resolvedKeybindSlot = math.floor(tonumber(keybindSlot) or ZERO_PANEL_KEYBIND_NONE_VALUE)
+    if resolvedKeybindSlot < 1 or resolvedKeybindSlot > ZERO_PANEL_KEYBIND_SLOT_COUNT then
+        resolvedKeybindSlot = ZERO_PANEL_KEYBIND_NONE_VALUE
+    end
+
+    for assignedLayoutKey, assignedSlot in pairs(self.savedVars.keybindAssignments) do
+        if assignedLayoutKey == layoutKey or tonumber(assignedSlot) == resolvedKeybindSlot then
+            self.savedVars.keybindAssignments[assignedLayoutKey] = nil
+        end
+    end
+
+    if resolvedKeybindSlot ~= ZERO_PANEL_KEYBIND_NONE_VALUE then
+        self.savedVars.keybindAssignments[layoutKey] = resolvedKeybindSlot
+    end
+
+    self:RegisterKeybindStringIds()
+end
+
+function ZeroPanel:GetFirstAvailableKeybindSlot()
+    self:EnsureKeybindAssignments()
+
+    local usedSlots = {}
+    for _, assignedSlot in pairs(self.savedVars.keybindAssignments or {}) do
+        local resolvedKeybindSlot = math.floor(tonumber(assignedSlot) or ZERO_PANEL_KEYBIND_NONE_VALUE)
+        if resolvedKeybindSlot >= 1 and resolvedKeybindSlot <= ZERO_PANEL_KEYBIND_SLOT_COUNT then
+            usedSlots[resolvedKeybindSlot] = true
+        end
+    end
+
+    for keybindSlot = 1, ZERO_PANEL_KEYBIND_SLOT_COUNT do
+        if not usedSlots[keybindSlot] then
+            return keybindSlot
+        end
+    end
+
+    return nil
+end
+
 function ZeroPanel:GetLayoutOrderKeyFromSelectedData(selectedData)
     if type(selectedData) ~= "table" then
         return nil
@@ -3291,6 +3774,315 @@ function ZeroPanel:GetDeleteSelectedLayoutEntry()
     return nil
 end
 
+function ZeroPanel:GetSelectedKeybindLayoutEntry()
+    local entry = self:SyncLayoutSelectionFromOrderListControl()
+    if entry then
+        return entry
+    end
+
+    entry = self:GetSelectedLayoutEntry()
+    if entry then
+        return entry
+    end
+
+    local layoutKey = self.selectedEditorLayoutKey
+    if type(layoutKey) == "string" and layoutKey ~= "" then
+        return self:GetLayoutCatalogByKey()[layoutKey]
+    end
+
+    return nil
+end
+
+function ZeroPanel:CanAssignKeybindToSelectedLayoutEntry()
+    return self:IsLayoutEntryBindable(self:GetSelectedKeybindLayoutEntry())
+end
+
+function ZeroPanel:CanBindSelectedLayoutEntry()
+    local entry = self:GetSelectedKeybindLayoutEntry()
+    if not self:IsLayoutEntryBindable(entry) then
+        return false
+    end
+
+    return self:GetKeybindSlotForLayoutKey(entry.key) ~= ZERO_PANEL_KEYBIND_NONE_VALUE or self:GetFirstAvailableKeybindSlot() ~= nil
+end
+
+function ZeroPanel:GetSelectedLayoutEntryKeybindSlot()
+    local entry = self:GetSelectedKeybindLayoutEntry()
+    if not self:IsLayoutEntryBindable(entry) then
+        return ZERO_PANEL_KEYBIND_NONE_VALUE
+    end
+
+    return self:GetKeybindSlotForLayoutKey(entry.key)
+end
+
+function ZeroPanel:GetSelectedLayoutEntryKeybindDescription()
+    local entry = self:GetSelectedKeybindLayoutEntry()
+    if not entry then
+        return "Select a button row in Reorder Layout to assign a keybind slot."
+    end
+
+    local entryName = tostring(entry.name or entry.key or "Selected entry")
+    if not self:IsLayoutEntryBindable(entry) then
+        return string.format("%s is a separator, so it cannot have a Zero Panel keybind.", entryName)
+    end
+
+    local descriptionParts = {
+        string.format("Selected Button: %s.", entryName),
+        string.format("Assigned Slot: %s.", GetZeroPanelKeybindSlotLabel(self:GetKeybindSlotForLayoutKey(entry.key))),
+        "Assign a slot here, or press Bind Selected Entry to auto-assign the first open slot and open Controls -> Zero Panel Keybindings.",
+        "If you reuse a slot, Zero Panel will move that slot off the button that already had it.",
+    }
+
+    if entry.definition and not self:IsButtonEnabledBySettings(entry.definition) then
+        descriptionParts[#descriptionParts + 1] = "This button is currently disabled in Zero Panel, so its keybind will stay inactive until you enable the button again."
+    elseif entry.definition and not self:IsButtonUsable(entry.definition) then
+        descriptionParts[#descriptionParts + 1] = "This button is currently unavailable, so its keybind will wait until the action becomes usable."
+    end
+
+    return table.concat(descriptionParts, "\n")
+end
+
+function ZeroPanel:SetSelectedLayoutEntryKeybindSlot(keybindSlot)
+    local entry = self:GetSelectedKeybindLayoutEntry()
+    if not self:IsLayoutEntryBindable(entry) then
+        return
+    end
+
+    self:SetKeybindSlotForLayoutKey(entry.key, keybindSlot)
+    self:RefreshButtonOrderControlState()
+end
+
+function ZeroPanel:GetBindSelectedLayoutEntryReason()
+    local entry = self:GetSelectedKeybindLayoutEntry()
+    if not entry then
+        return "No row is selected in Reorder Layout. Click a button row there first."
+    end
+
+    local entryName = tostring(entry.name or entry.key or "Selected entry")
+    if not self:IsLayoutEntryBindable(entry) then
+        return string.format("%s is a separator, so it cannot have a Zero Panel keybind.", entryName)
+    end
+
+    local keybindSlot = self:GetKeybindSlotForLayoutKey(entry.key)
+    if keybindSlot ~= ZERO_PANEL_KEYBIND_NONE_VALUE then
+        return string.format("%s is already assigned to %s.", entryName, GetZeroPanelKeybindSlotLabel(keybindSlot))
+    end
+
+    local firstAvailableKeybindSlot = self:GetFirstAvailableKeybindSlot()
+    if firstAvailableKeybindSlot then
+        return string.format("%s does not have a slot yet. Bind Selected Entry will assign %s first, then open Controls -> Zero Panel Keybindings.", entryName, GetZeroPanelKeybindSlotLabel(firstAvailableKeybindSlot))
+    end
+
+    return "All Zero Panel keybind slots are already in use. Free one first, or reassign this row to an existing slot."
+end
+
+function ZeroPanel:GetBindSelectedLayoutEntryTooltip()
+    return table.concat({
+        "Assign or open the selected button's Zero Panel keybind slot.",
+        "Current Reason: " .. self:GetBindSelectedLayoutEntryReason(),
+    }, "\n")
+end
+
+function ZeroPanel:RegisterKeybindingsMenuPanel()
+    if self.keybindingsMenuPanelId or not KEYBOARD_OPTIONS or type(KEYBOARD_OPTIONS.currentPanelId) ~= "number" or type(ZO_GameMenu_AddControlsPanel) ~= "function" then
+        return
+    end
+
+    local keybindingManager = KEYBOARD_KEYBINDING_MANAGER or KEYBINDING_MANAGER
+    local keybindingList = keybindingManager and keybindingManager.list or nil
+
+    local function installFilterOverride()
+        keybindingManager = KEYBOARD_KEYBINDING_MANAGER or KEYBINDING_MANAGER
+        keybindingList = keybindingManager and keybindingManager.list or nil
+        if not keybindingList then
+            return false
+        end
+
+        if self.keybindingsFilterOverride == nil then
+            self.keybindingsFilterOverride = function(filterList)
+                local scrollList = filterList and filterList.list or nil
+                local masterList = filterList and filterList.masterList or nil
+                if not scrollList or type(ZO_ScrollList_GetDataList) ~= "function" or type(ZO_ScrollList_Clear) ~= "function" then
+                    return
+                end
+
+                local scrollData = ZO_ScrollList_GetDataList(scrollList)
+                local layerHeader = nil
+                local categoryHeader = nil
+                local lastSI = SI_NONSTR_INGAMESHAREDSTRINGS_LAST_ENTRY
+                local showZeroPanelOnly = self.keybindingsFilterMode == "zero_panel_only"
+                local showAddonKeybinds = libAddonKeybinds and libAddonKeybinds.showAddonKeybinds or false
+
+                ZO_ScrollList_Clear(scrollList)
+
+                for _, dataEntry in ipairs(masterList or {}) do
+                    if dataEntry.typeId == KEYBINDINGS_LAYER_DATA_TYPE then
+                        layerHeader = dataEntry
+                        categoryHeader = nil
+                    elseif dataEntry.typeId == KEYBINDINGS_CATEGORY_DATA_TYPE then
+                        categoryHeader = dataEntry
+                    else
+                        local actionName = dataEntry.data and dataEntry.data.actionName or nil
+                        local insertEntry = false
+
+                        if showZeroPanelOnly then
+                            insertEntry = self:IsZeroPanelKeybindActionName(actionName)
+                        else
+                            insertEntry = showAddonKeybinds
+                            local actionSI = type(actionName) == "string" and _G["SI_BINDING_NAME_" .. actionName] or nil
+                            if type(actionSI) == "number" and actionSI < lastSI then
+                                insertEntry = not insertEntry
+                            end
+                        end
+
+                        if insertEntry then
+                            if layerHeader then
+                                scrollData[#scrollData + 1] = layerHeader
+                                layerHeader = nil
+                            end
+                            if categoryHeader then
+                                scrollData[#scrollData + 1] = categoryHeader
+                                categoryHeader = nil
+                            end
+                            scrollData[#scrollData + 1] = dataEntry
+                        end
+                    end
+                end
+            end
+        end
+
+        keybindingList.FilterScrollList = self.keybindingsFilterOverride
+        return true
+    end
+
+    local function setFilterMode(mode, forceRefresh)
+        if mode ~= "zero_panel_only" then
+            mode = nil
+        end
+
+        if not installFilterOverride() then
+            self.keybindingsFilterMode = mode
+            return
+        end
+
+        if self.keybindingsFilterMode ~= mode or forceRefresh then
+            self.keybindingsFilterMode = mode
+            if type(keybindingList.RefreshFilters) == "function" then
+                keybindingList:RefreshFilters()
+            end
+        end
+    end
+
+    self.InstallKeybindingsFilterOverride = installFilterOverride
+    self.SetKeybindingsFilterMode = setFilterMode
+
+    local panelId = KEYBOARD_OPTIONS.currentPanelId
+    KEYBOARD_OPTIONS.currentPanelId = panelId + 1
+    KEYBOARD_OPTIONS.panelNames[panelId] = ZERO_PANEL_KEYBINDINGS_MENU_NAME
+
+    ZO_GameMenu_AddControlsPanel({
+        id = panelId,
+        name = ZERO_PANEL_KEYBINDINGS_MENU_NAME,
+        callback = function()
+            if GAME_MENU_SCENE and KEYBINDINGS_FRAGMENT and type(GAME_MENU_SCENE.AddFragment) == "function" then
+                GAME_MENU_SCENE:AddFragment(KEYBINDINGS_FRAGMENT)
+            end
+            setFilterMode("zero_panel_only", true)
+        end,
+        unselectedCallback = function()
+            if GAME_MENU_SCENE and KEYBINDINGS_FRAGMENT and type(GAME_MENU_SCENE.RemoveFragment) == "function" then
+                GAME_MENU_SCENE:RemoveFragment(KEYBINDINGS_FRAGMENT)
+            end
+            setFilterMode(nil, true)
+        end,
+    })
+
+    if not self.keybindingsMenuResetHookInstalled and ZO_GameMenu_InGame and ZO_GameMenu_InGame.gameMenu and ZO_GameMenu_InGame.gameMenu.navigationTree then
+        ZO_PreHook(ZO_GameMenu_InGame.gameMenu.navigationTree, "Reset", function()
+            setFilterMode(nil, false)
+        end)
+        self.keybindingsMenuResetHookInstalled = true
+    end
+
+    self.keybindingsMenuPanelId = panelId
+end
+
+function ZeroPanel:OpenKeybindingsMenu()
+    self:RegisterKeybindingsMenuPanel()
+
+    if type(self.InstallKeybindingsFilterOverride) == "function" then
+        self.InstallKeybindingsFilterOverride()
+    end
+
+    if not SCENE_MANAGER then
+        return false
+    end
+
+    local canShowKeybindingsFragment = GAME_MENU_SCENE and KEYBINDINGS_FRAGMENT and type(GAME_MENU_SCENE.AddFragment) == "function"
+    local canChangePanels = KEYBOARD_OPTIONS and type(KEYBOARD_OPTIONS.ChangePanels) == "function" and type(self.keybindingsMenuPanelId) == "number"
+    if not canShowKeybindingsFragment and not canChangePanels then
+        return false
+    end
+
+    local function openPanel()
+        if LibAddonMenu2 and type(LibAddonMenu2.GetAddonSettingsFragment) == "function" and type(SCENE_MANAGER.RemoveFragment) == "function" then
+            local addonSettingsFragment = LibAddonMenu2:GetAddonSettingsFragment()
+            if addonSettingsFragment then
+                SCENE_MANAGER:RemoveFragment(addonSettingsFragment)
+            end
+        end
+
+        if canShowKeybindingsFragment then
+            GAME_MENU_SCENE:AddFragment(KEYBINDINGS_FRAGMENT)
+        end
+
+        if canChangePanels then
+            KEYBOARD_OPTIONS:ChangePanels(self.keybindingsMenuPanelId)
+        end
+    end
+
+    local gameMenuScene = type(SCENE_MANAGER.GetScene) == "function" and SCENE_MANAGER:GetScene("gameMenuInGame") or nil
+    if gameMenuScene and type(gameMenuScene.GetState) == "function" and gameMenuScene:GetState() == SCENE_SHOWN then
+        openPanel()
+        return true
+    end
+
+    if type(SCENE_MANAGER.CallWhen) == "function" and type(SCENE_MANAGER.Show) == "function" then
+        SCENE_MANAGER:CallWhen("gameMenuInGame", SCENE_SHOWN, openPanel)
+        SCENE_MANAGER:Show("gameMenuInGame")
+        return true
+    end
+
+    return false
+end
+
+function ZeroPanel:BindSelectedLayoutEntry()
+    local entry = self:GetSelectedKeybindLayoutEntry()
+    if not self:IsLayoutEntryBindable(entry) then
+        self:Print(self:GetBindSelectedLayoutEntryReason())
+        return
+    end
+
+    local keybindSlot = self:GetKeybindSlotForLayoutKey(entry.key)
+    if keybindSlot == ZERO_PANEL_KEYBIND_NONE_VALUE then
+        keybindSlot = self:GetFirstAvailableKeybindSlot()
+        if not keybindSlot then
+            self:Print(self:GetBindSelectedLayoutEntryReason())
+            return
+        end
+
+        self:SetKeybindSlotForLayoutKey(entry.key, keybindSlot)
+        self:RefreshButtonOrderControlState()
+    end
+
+    local entryName = tostring(entry.name or entry.key or "Selected entry")
+    self:Print(string.format("%s is using %s. Bind it in Controls -> Zero Panel Keybindings.", entryName, GetZeroPanelKeybindSlotLabel(keybindSlot)))
+
+    if not self:OpenKeybindingsMenu() then
+        self:Print("Unable to open Zero Panel Keybindings automatically. Open Controls -> Zero Panel Keybindings and bind that slot there.")
+    end
+end
+
 function ZeroPanel:IsLayoutEntryRemovable(entry)
     return entry ~= nil and (entry.customButtonId ~= nil or entry.customSeparatorId ~= nil)
 end
@@ -3300,6 +4092,8 @@ function ZeroPanel:GetButtonOrderHelpText()
         "Drag rows or use the move buttons to change the live Zero Panel order.",
         string.format("|c%sGold rows|r are removable custom buttons or custom separators.", ORDER_ENTRY_REMOVABLE_HEX),
         string.format("|c%sGray rows|r are built-in Zero Panel entries. You can reorder or hide them, but you cannot delete them.", ORDER_ENTRY_FIXED_HEX),
+        "Select any button row here to assign it a Zero Panel keybind slot below.",
+        "Bind Selected Entry will auto-assign the first free slot for a button if it does not already have one, then open Zero Panel Keybindings.",
         string.format("To delete a removable entry, click its row first, then press |c%sDelete Selected Entry|r below.", ORDER_HELP_DELETE_HEX),
         "Hidden or unavailable rows still keep their saved place here.",
     }, "\n")
@@ -3355,6 +4149,24 @@ function ZeroPanel:ApplySettingsVisualStyles()
         buttonOrderHelp.desc:SetFont("ZoFontGameSmall")
     end
 
+    local supportDescription = _G.ZeroPanelSupportDescription
+    if supportDescription and supportDescription.title then
+        ApplyColorToControl(supportDescription.title, ZERO_PANEL_LINK_HEX)
+    end
+
+    for _, style in ipairs(SETTINGS_SUBMENU_STYLES) do
+        local submenuControl = _G[style.reference]
+        if submenuControl then
+            if submenuControl.label then
+                ApplyColorToControl(submenuControl.label, style.hex)
+            end
+
+            if submenuControl.arrow then
+                ApplyColorToControl(submenuControl.arrow, style.hex)
+            end
+        end
+    end
+
     self:ConfigureButtonOrderListVisualStyles()
 end
 
@@ -3370,35 +4182,64 @@ end
 function ZeroPanel:RefreshButtonOrderControlState()
     self:SyncLayoutSelectionFromOrderListControl()
 
-    local deleteControl = _G.ZeroPanelDeleteLayoutEntryButton
-    if deleteControl then
-        local tooltipText = self:GetDeleteSelectedLayoutEntryTooltip()
-        deleteControl.data = deleteControl.data or {}
-        deleteControl.data.tooltipText = tooltipText
-
-        if deleteControl.button then
-            deleteControl.button.data = deleteControl.button.data or {}
-            deleteControl.button.data.tooltipText = tooltipText
+    local keybindDescriptionControl = _G.ZeroPanelSelectedEntryKeybindDescription
+    if keybindDescriptionControl then
+        if type(keybindDescriptionControl.UpdateValue) == "function" then
+            keybindDescriptionControl:UpdateValue()
         end
 
-        if not deleteControl.zeroPanelTooltipHandlersBound then
-            deleteControl:SetHandler("OnMouseEnter", ZO_Options_OnMouseEnter)
-            deleteControl:SetHandler("OnMouseExit", ZO_Options_OnMouseExit)
-            deleteControl.zeroPanelTooltipHandlersBound = true
-        end
-
-        if type(deleteControl.UpdateDisabled) == "function" then
-            deleteControl:UpdateDisabled()
-        end
-
-        if type(deleteControl.UpdateWarning) == "function" then
-            deleteControl:UpdateWarning()
-        elseif deleteControl.warning then
-            deleteControl.warning.data = deleteControl.warning.data or {}
-            deleteControl.warning.data.tooltipText = self:GetDeleteSelectedLayoutEntryWarning()
+        if type(keybindDescriptionControl.UpdateDisabled) == "function" then
+            keybindDescriptionControl:UpdateDisabled()
         end
     end
 
+    local function refreshActionButton(controlReferenceName, tooltipText, warningText)
+        local control = _G[controlReferenceName]
+        if not control then
+            return
+        end
+
+        control.data = control.data or {}
+        control.data.tooltipText = tooltipText
+
+        if control.button then
+            control.button.data = control.button.data or {}
+            control.button.data.tooltipText = tooltipText
+        end
+
+        if not control.zeroPanelTooltipHandlersBound then
+            control:SetHandler("OnMouseEnter", ZO_Options_OnMouseEnter)
+            control:SetHandler("OnMouseExit", ZO_Options_OnMouseExit)
+            control.zeroPanelTooltipHandlersBound = true
+        end
+
+        if type(control.UpdateDisabled) == "function" then
+            control:UpdateDisabled()
+        end
+
+        if type(control.UpdateWarning) == "function" then
+            control:UpdateWarning()
+        elseif control.warning then
+            control.warning.data = control.warning.data or {}
+            control.warning.data.tooltipText = warningText
+        end
+    end
+
+    refreshActionButton("ZeroPanelBindSelectedLayoutEntryButton", self:GetBindSelectedLayoutEntryTooltip(), nil)
+    refreshActionButton("ZeroPanelDeleteLayoutEntryButton", self:GetDeleteSelectedLayoutEntryTooltip(), self:GetDeleteSelectedLayoutEntryWarning())
+
+    local keybindSlotControl = _G.ZeroPanelSelectedEntryKeybindSlot
+    if keybindSlotControl then
+        if type(keybindSlotControl.UpdateDisabled) == "function" then
+            keybindSlotControl:UpdateDisabled()
+        end
+
+        if type(keybindSlotControl.UpdateWarning) == "function" then
+            keybindSlotControl:UpdateWarning()
+        end
+    end
+
+    self:UpdateDropdownReference("ZeroPanelSelectedEntryKeybindSlot", ZERO_PANEL_KEYBIND_SLOT_CHOICES, ZERO_PANEL_KEYBIND_SLOT_VALUES, self:GetSelectedLayoutEntryKeybindSlot())
     self:ApplySettingsVisualStyles()
 end
 
@@ -3442,6 +4283,12 @@ function ZeroPanel:GetOrderListEntries()
             if orderUniqueKey then
                 local entryColorHex = self:IsLayoutEntryRemovable(entry) and ORDER_ENTRY_REMOVABLE_HEX or ORDER_ENTRY_FIXED_HEX
                 local entryText = string.format("|c%s%s|r", entryColorHex, tostring(entry.name or entry.key))
+                if entry.kind == "button" then
+                    local keybindSlot = self:GetKeybindSlotForLayoutKey(entry.key)
+                    if keybindSlot ~= ZERO_PANEL_KEYBIND_NONE_VALUE then
+                        entryText = string.format("%s |c%s[%s]|r", entryText, ORDER_ENTRY_STATUS_HEX, GetZeroPanelKeybindSlotShortLabel(keybindSlot))
+                    end
+                end
                 if suffix ~= "" then
                     entryText = string.format("%s |c%s%s|r", entryText, ORDER_ENTRY_STATUS_HEX, suffix)
                 end
@@ -3495,6 +4342,8 @@ function ZeroPanel:GetCustomSeparatorChoiceEntries()
 end
 
 function ZeroPanel:RefreshCustomEditorControls()
+    self:RegisterKeybindStringIds()
+
     local customButtonChoices, customButtonValues = self:GetCustomButtonChoiceEntries()
     local customButtonId = self:GetSelectedCustomButtonId() or 0
     self:UpdateDropdownReference("ZeroPanelCustomButtonSelector", customButtonChoices, customButtonValues, customButtonId)
@@ -3503,10 +4352,35 @@ function ZeroPanel:RefreshCustomEditorControls()
     local customSeparatorId = self:GetSelectedCustomSeparatorId() or 0
     self:UpdateDropdownReference("ZeroPanelCustomSeparatorSelector", customSeparatorChoices, customSeparatorValues, customSeparatorId)
 
+    self:RefreshSummonableChoiceControls()
     self:RefreshCollectibleBrowserControls()
     self:RefreshTextureBrowserControls()
     self:RefreshButtonOrderControlState()
     self:RequestSettingsRefresh()
+end
+
+function ZeroPanel:RefreshCollectibleDependentControls()
+    self:InvalidateCollectibleCaches()
+    self:RefreshSummonableChoiceControls()
+    if self.collectibleBrowserWindow or _G.ZeroPanelCollectibleSelector then
+        self:RefreshCollectibleBrowserControls()
+    end
+    self:RefreshPanel()
+    self:RefreshButtonOrderControlState()
+    self:RequestSettingsRefresh()
+end
+
+function ZeroPanel:QueueCollectibleStateRefresh()
+    if self.collectibleRefreshQueued then
+        return
+    end
+
+    self.collectibleRefreshQueued = true
+    EVENT_MANAGER:RegisterForUpdate(self.name .. "CollectibleRefresh", 100, function()
+        EVENT_MANAGER:UnregisterForUpdate(self.name .. "CollectibleRefresh")
+        self.collectibleRefreshQueued = false
+        self:RefreshCollectibleDependentControls()
+    end)
 end
 
 function ZeroPanel:RemoveLayoutKey(layoutKey)
@@ -3548,6 +4422,8 @@ function ZeroPanel:DeleteSelectedCustomButton()
 
     self.savedVars.customButtons[customButtonId] = nil
     local layoutKey = GetCustomButtonLayoutKey(customButtonId)
+    self:ClearKeybindAssignmentForLayoutKey(layoutKey)
+    self:RegisterKeybindStringIds()
     self:RemoveLayoutKey(layoutKey)
     if self.selectedLayoutOrderKey == layoutKey then
         self:SetSelectedLayoutOrderKey(nil)
@@ -3601,6 +4477,8 @@ function ZeroPanel:DeleteSelectedCustomSeparator()
 
     self.savedVars.customSeparators[customSeparatorId] = nil
     local layoutKey = GetCustomSeparatorLayoutKey(customSeparatorId)
+    self:ClearKeybindAssignmentForLayoutKey(layoutKey)
+    self:RegisterKeybindStringIds()
     self:RemoveLayoutKey(layoutKey)
     if self.selectedLayoutOrderKey == layoutKey then
         self:SetSelectedLayoutOrderKey(nil)
@@ -3637,6 +4515,8 @@ function ZeroPanel:DeleteSelectedLayoutEntry()
         end
     end
 
+    self:ClearKeybindAssignmentForLayoutKey(entry.key)
+    self:RegisterKeybindStringIds()
     self:RemoveLayoutKey(entry.key)
     self:SetSelectedLayoutOrderKey(nil)
     if self.selectedEditorLayoutKey == entry.key then
@@ -4034,11 +4914,7 @@ function ZeroPanel:RefreshPanel()
                     self:RefreshButtonHoverStates()
                 end)
                 button:SetHandler("OnClicked", function(control)
-                    if control.usable and control.definition and control.definition.click then
-                        control.definition.click(self)
-                        self:RefreshPanel()
-                        self:QueueHoveredTooltipRefresh()
-                    end
+                    self:ExecuteButtonDefinition(control.definition)
                 end)
 
                 self.buttons[buttonIndex] = button
@@ -4085,11 +4961,16 @@ function ZeroPanel:OpenSettings()
         LibAddonMenu2:OpenToPanel(self.addonPanel)
         if type(zo_callLater) == "function" then
             zo_callLater(function()
+                self:InvalidateCollectibleCaches()
                 self:RefreshCustomEditorControls()
+                self:RefreshLayoutDirectionOptionControls()
                 self:ApplySettingsVisualStyles()
             end, 50)
         else
-            self:RefreshButtonOrderControlState()
+            self:InvalidateCollectibleCaches()
+            self:RefreshCustomEditorControls()
+            self:RefreshLayoutDirectionOptionControls()
+            self:ApplySettingsVisualStyles()
         end
     end
 end
@@ -4130,14 +5011,14 @@ function ZeroPanel:BuildSettings()
     local appearanceControls = {
         {
             type = "description",
-            text = "Adjust the panel layout and visual styling. Layout Direction flips the bar between vertical and horizontal flow, while Buttons Per Line controls when the panel wraps to the next column or row.",
+            text = "Adjust the panel layout and visual styling. Layout Direction matches the actual bar orientation, and the wrap setting below renames itself to Buttons Per Row or Buttons Per Column to match.",
             width = "full",
         },
         {
             type = "dropdown",
             name = "Layout Direction",
-            tooltip = "Vertical stacks buttons top to bottom. Horizontal runs them left to right. Buttons Per Line controls how many buttons fit before wrapping.",
-            choices = {"Vertical", "Horizontal"},
+            tooltip = "Horizontal runs the bar left to right. Vertical stacks the bar top to bottom. The wrap setting below updates immediately to match.",
+            choices = {"Horizontal", "Vertical"},
             choicesValues = {"vertical", "horizontal"},
             getFunc = function()
                 return self:GetLayoutDirection()
@@ -4145,14 +5026,20 @@ function ZeroPanel:BuildSettings()
             setFunc = function(value)
                 self.savedVars.layoutDirection = value == "horizontal" and "horizontal" or "vertical"
                 self:RefreshPanel()
+                self:RefreshLayoutDirectionOptionControls()
             end,
             default = DEFAULTS.layoutDirection,
             width = "half",
         },
         {
             type = "slider",
-            name = "Buttons Per Line",
-            tooltip = "How many buttons fit on each column or row before Zero Panel wraps to the next line. Separators stay in sequence and do not count toward this limit.",
+            name = function()
+                return self:GetButtonsPerLineSettingName()
+            end,
+            reference = "ZeroPanelButtonsPerLineSlider",
+            tooltip = function()
+                return self:GetButtonsPerLineSettingTooltip()
+            end,
             min = 1,
             max = 24,
             step = 1,
@@ -4653,8 +5540,9 @@ function ZeroPanel:BuildSettings()
             listEntries = self:GetOrderListEntries(),
             showPosition = true,
             rowSelectedCallback = function(orderListControl, _, selectedData)
-                if not selectedData and orderListControl and orderListControl.orderListBox and type(ZO_ScrollList_GetSelectedData) == "function" then
-                    selectedData = ZO_ScrollList_GetSelectedData(orderListControl.orderListBox.scrollListControl)
+                local scrollListControl = orderListControl and (orderListControl.scrollListControl or (orderListControl.orderListBox and orderListControl.orderListBox.scrollListControl)) or nil
+                if not selectedData and scrollListControl and type(ZO_ScrollList_GetSelectedData) == "function" then
+                    selectedData = ZO_ScrollList_GetSelectedData(scrollListControl)
                 end
                 self:HandleLayoutOrderSelection(selectedData)
                 self:RefreshButtonOrderControlState()
@@ -4683,6 +5571,49 @@ function ZeroPanel:BuildSettings()
             width = "full",
         },
         {
+            type = "description",
+            reference = "ZeroPanelSelectedEntryKeybindDescription",
+            title = "Selected Button Keybind",
+            text = function()
+                return self:GetSelectedLayoutEntryKeybindDescription()
+            end,
+            width = "full",
+        },
+        {
+            type = "dropdown",
+            name = "Keybind Slot",
+            reference = "ZeroPanelSelectedEntryKeybindSlot",
+            tooltip = "Assign the selected button to a Zero Panel binding slot. Then bind the actual key in Controls -> Zero Panel Keybindings.",
+            choices = ZERO_PANEL_KEYBIND_SLOT_CHOICES,
+            choicesValues = ZERO_PANEL_KEYBIND_SLOT_VALUES,
+            getFunc = function()
+                return self:GetSelectedLayoutEntryKeybindSlot()
+            end,
+            setFunc = function(value)
+                self:SetSelectedLayoutEntryKeybindSlot(value)
+            end,
+            disabled = function()
+                return not self:CanAssignKeybindToSelectedLayoutEntry()
+            end,
+            default = ZERO_PANEL_KEYBIND_NONE_VALUE,
+            width = "full",
+        },
+        {
+            type = "button",
+            name = "Bind Selected Entry",
+            reference = "ZeroPanelBindSelectedLayoutEntryButton",
+            tooltip = function()
+                return self:GetBindSelectedLayoutEntryTooltip()
+            end,
+            func = function()
+                self:BindSelectedLayoutEntry()
+            end,
+            disabled = function()
+                return not self:CanBindSelectedLayoutEntry()
+            end,
+            width = "half",
+        },
+        {
             type = "button",
             name = "Delete Selected Entry",
             reference = "ZeroPanelDeleteLayoutEntryButton",
@@ -4703,7 +5634,7 @@ function ZeroPanel:BuildSettings()
             disabled = function()
                 return not self:CanDeleteSelectedLayoutEntry()
             end,
-            width = "full",
+            width = "half",
         },
     }
 
@@ -4714,6 +5645,7 @@ function ZeroPanel:BuildSettings()
         local controlData = {
             type = "dropdown",
             name = summonable.choiceLabel,
+            reference = summonable.dropdownReference,
             tooltip = "Only unlocked options are listed here.",
             choices = choices,
             choicesValues = choiceValues,
@@ -4747,6 +5679,7 @@ function ZeroPanel:BuildSettings()
         {
             type = "description",
             title = "Support",
+            reference = "ZeroPanelSupportDescription",
             text = string.format("Please report bugs and feature requests via %s.", ZERO_PANEL_GITHUB_ISSUES_LINK_TEXT),
             tooltip = "Open the GitHub issues page for Zero Panel.",
             enableLinks = OnSupportLinkClicked,
@@ -4754,42 +5687,44 @@ function ZeroPanel:BuildSettings()
         },
         {
             type = "submenu",
-            name = "Commands",
-            controls = commandControls,
-        },
-        {
-            type = "submenu",
-            name = "Appearance",
-            controls = appearanceControls,
-        },
-        {
-            type = "submenu",
-            name = "Panel Settings",
+            name = "General",
+            reference = "ZeroPanelPanelSettingsSubmenu",
             controls = panelSettingsControls,
         },
         {
             type = "submenu",
-            name = "Visible Buttons",
+            name = "Appearance",
+            reference = "ZeroPanelAppearanceSubmenu",
+            controls = appearanceControls,
+        },
+        {
+            type = "submenu",
+            name = "Default Button Visibility",
+            reference = "ZeroPanelVisibleButtonsSubmenu",
             controls = visibleButtonsControls,
         },
         {
             type = "submenu",
             name = "Assistant Selection",
+            reference = "ZeroPanelAssistantSubmenu",
             controls = assistantControls,
         },
         {
             type = "submenu",
             name = "Ally Selection",
+            reference = "ZeroPanelAllySubmenu",
             controls = allyControls,
         },
         {
             type = "submenu",
             name = "Custom Buttons",
+            reference = "ZeroPanelCustomButtonsSubmenu",
             controls = customButtonControls,
         },
         {
             type = "submenu",
             name = "Custom Separators",
+            reference = "ZeroPanelCustomSeparatorsSubmenu",
             controls = customSeparatorControls,
         },
         {
@@ -4810,8 +5745,15 @@ function ZeroPanel:BuildSettings()
         },
         {
             type = "submenu",
-            name = "Button Order",
+            name = "BUTTON ORDER / KEYBINDING",
+            reference = "ZeroPanelButtonOrderSubmenu",
             controls = buttonOrderControls,
+        },
+        {
+            type = "submenu",
+            name = "Commands",
+            reference = "ZeroPanelCommandsSubmenu",
+            controls = commandControls,
         },
     }
 
@@ -4834,6 +5776,7 @@ function ZeroPanel:BuildSettings()
     end
 
     LAM:RegisterOptionControls(self.panelId, options)
+    self:RefreshLayoutDirectionOptionControls()
     self:RefreshButtonOrderControlState()
     self:ConfigureButtonOrderListVisualStyles()
 end
@@ -4864,6 +5807,9 @@ function ZeroPanel:Initialize()
     self:EnsureCustomButtons()
     self:EnsureCollectibleChoices()
     self:EnsureOrder()
+    self:EnsureKeybindAssignments()
+    self:RegisterKeybindStringIds()
+    self:RegisterKeybindingsMenuPanel()
     self:CreateWindow()
     self:UpdateSceneRegistration()
     self:ApplyAnchor()
@@ -4880,6 +5826,11 @@ function ZeroPanel:Initialize()
     end)
     EVENT_MANAGER:RegisterForEvent(self.name, EVENT_PLAYER_ACTIVATED, function()
         self:RefreshPanel()
+    end)
+    pcall(function()
+        EVENT_MANAGER:RegisterForEvent(self.name, EVENT_COLLECTIBLE_UNLOCKED, function()
+            self:QueueCollectibleStateRefresh()
+        end)
     end)
     EVENT_MANAGER:RegisterForEvent(self.name, EVENT_GROUP_MEMBER_JOINED, function()
         self:RefreshPanel()
@@ -4921,5 +5872,10 @@ local function OnAddOnLoaded(_, addonName)
 end
 
 EVENT_MANAGER:RegisterForEvent(ZeroPanel.name, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
+
+function ZeroPanel_HandleBindingSlot(keybindSlot)
+    return ZeroPanel:ExecuteKeybindSlot(keybindSlot)
+end
+
 
 
